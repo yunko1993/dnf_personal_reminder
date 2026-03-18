@@ -1,10 +1,10 @@
-name: dnf_universal_reminder
-desc: 通用定时提醒助手，支持群友通过指令自定义提醒（如编年史、心悦、日常等）。
+name: dnf_personal_reminder
+desc: DNF 每日活动私人提醒秘书。支持在群聊或私聊中添加定时提醒，机器人将通过【私聊】准时戳你，再也不怕忘领增幅器。
 help: |
-  使用方法：
-  /提醒 添加 [时间 HH:MM] [提醒内容]  - 添加一个每日提醒
-  /提醒 列表                        - 查看我设置的所有提醒
-  /提醒 删除 [编号]                  - 删除指定的提醒
-  /提醒 立即测试                     - 立即触发一次所有提醒
-version: 1.1.0
+  /提醒 添加 [时间 HH:MM] [内容] - 添加一个每日私人提醒
+  /提醒 列表 - 查看我设置的所有提醒
+  /提醒 删除 [编号] - 删除指定的提醒
+  /提醒 立即测试 - 立即触发一次属于我的提醒
+version: 1.2.0
 author: yunko1993
+repo: https://github.com/yunko1993/dnf_personal_reminder
