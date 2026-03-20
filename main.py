@@ -8,18 +8,25 @@ from astrbot.api.all import *
 @register("dnf_personal_reminder", "yunko1993", "DNF私人提醒秘书", "1.4.0")
 class PersonalReminder(Star):
     def __init__(self, context: Context):
-        super().__init__(context)
-        
-        self.plugin_name = "dnf_personal_reminder"
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        self.data_dir = os.path.join(base_dir, "data", "plugin_data", self.plugin_name)
-        
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir)
+            super().__init__(context)
             
-        self.data_file = os.path.join(self.data_dir, "reminders.json")
-        self.reminders = self._load_data()
-        self._refresh_scheduler()
+            # 1. 设置文件夹名称（改成和你截图里的插件文件夹同名）
+            self.plugin_name = "astrbot_plugin_dnf_reminder"
+            
+            # 2. 完美的路径解析逻辑
+            # __file__ 当前在 data/plugins/astrbot_plugin_dnf_reminder/main.py
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # 退两级到达 data/ 目录
+            data_base_dir = os.path.dirname(os.path.dirname(current_dir))
+            # 精准拼接到你截图里的目标位置：data/plugin_data/astrbot_plugin_dnf_reminder
+            self.data_dir = os.path.join(data_base_dir, "plugin_data", self.plugin_name)
+            
+            if not os.path.exists(self.data_dir):
+                os.makedirs(self.data_dir)
+                
+            self.data_file = os.path.join(self.data_dir, "reminders.json")
+            self.reminders = self._load_data()
+            self._refresh_scheduler()
 
     def _load_data(self):
         if os.path.exists(self.data_file):
