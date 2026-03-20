@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime
 from astrbot.api.all import *
 
-@register("dnf_personal_reminder", "yunko1993", "DNF私人提醒秘书", "1.3.0")
+@register("dnf_personal_reminder", "yunko1993", "DNF私人提醒秘书", "1.3.1")
 class PersonalReminder(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -68,18 +68,17 @@ class PersonalReminder(Star):
     async def _send_private_notification(self, item):
         msg = f"🔔 【私人秘书提醒】\n--------------------\n内容：{item['content']}\n时间：{item['time']}\n--------------------\n别忘了去领取哦！"
         try:
-            # 尝试发送私聊
             await self.context.send_private_message(item['user_id'], [Plain(msg)])
         except Exception as e:
             logging.error(f"发送提醒失败: {e}")
 
-    # ================= 以下全部改为最基础的命令注册，保证 100% 兼容 =================
+    # ================= 指令区 =================
     
     @command("提醒添加")
-    async def add(self, event: AstrMessageEvent, time_str: str, *content_args):
+    async def add(self, event: AstrMessageEvent, time_str: str, *args: str):
         '''用法: /提醒添加 10:30 领心悦增幅器'''
-        # 兼容带空格的内容
-        content = " ".join(content_args)
+        # 修复 _empty() 报错：给 *args 加上了 : str 类型注解
+        content = " ".join(args)
         if not content:
             yield CommandResult().error("内容不能为空！格式: /提醒添加 10:30 领东西")
             return
@@ -90,7 +89,11 @@ class PersonalReminder(Star):
             yield CommandResult().error("时间格式错误！请使用 HH:MM (如 09:30)")
             return
 
-        user_id = event.message_obj.user_id
+        # 修复 user_id 报错：使用更稳健的 API 获取方式
+        try:
+            user_id = str(event.get_sender_id())
+        except:
+            user_id = str(event.message_obj.sender.user_id)
         
         self.reminders.append({
             "user_id": user_id,
@@ -104,8 +107,12 @@ class PersonalReminder(Star):
     @command("提醒列表")
     async def list_reminders(self, event: AstrMessageEvent):
         '''用法: /提醒列表 （查看我的提醒列表）'''
-        user_id = event.message_obj.user_id
-        my_items =[f"[{i}] {r['time']} - {r['content']}" for i, r in enumerate(self.reminders) if r['user_id'] == user_id]
+        try:
+            user_id = str(event.get_sender_id())
+        except:
+            user_id = str(event.message_obj.sender.user_id)
+            
+        my_items =[f"[{i}] {r['time']} - {r['content']}" for i, r in enumerate(self.reminders) if str(r['user_id']) == user_id]
         
         if not my_items:
             yield CommandResult().success("你当前没有任何私人提醒。")
@@ -115,9 +122,13 @@ class PersonalReminder(Star):
     @command("提醒删除")
     async def delete(self, event: AstrMessageEvent, index: int):
         '''用法: /提醒删除 [编号]'''
-        user_id = event.message_obj.user_id
         try:
-            if 0 <= index < len(self.reminders) and self.reminders[index]['user_id'] == user_id:
+            user_id = str(event.get_sender_id())
+        except:
+            user_id = str(event.message_obj.sender.user_id)
+            
+        try:
+            if 0 <= index < len(self.reminders) and str(self.reminders[index]['user_id']) == user_id:
                 removed = self.reminders.pop(index)
                 self._save_data()
                 yield CommandResult().success(f"🗑 已删除：{removed['time']} {removed['content']}")
@@ -129,8 +140,12 @@ class PersonalReminder(Star):
     @command("提醒测试")
     async def test(self, event: AstrMessageEvent):
         '''用法: /提醒测试 （立即测试我的提醒）'''
-        user_id = event.message_obj.user_id
-        my_items = [r for r in self.reminders if r['user_id'] == user_id]
+        try:
+            user_id = str(event.get_sender_id())
+        except:
+            user_id = str(event.message_obj.sender.user_id)
+            
+        my_items = [r for r in self.reminders if str(r['user_id']) == user_id]
         
         if not my_items:
             yield CommandResult().error("你还没有设置任何任务。")
