@@ -47,6 +47,7 @@ class PersonalReminder(Star):
         self.config = config or {}
         self._scheduler_synced = False
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._scheduler_retry_task: Optional[asyncio.Task] = None
 
         self.data_dir = self._resolve_data_dir()
         os.makedirs(self.data_dir, exist_ok=True)
@@ -55,6 +56,7 @@ class PersonalReminder(Star):
         self.reminders = self._load_data()
         self._capture_loop()
         self._ensure_scheduler_ready()
+        self._schedule_scheduler_retry()
 
         logging.info("DNF reminder: using data file %s", self.data_file)
         logging.info("DNF reminder: loaded %s reminders", len(self.reminders))
@@ -203,6 +205,45 @@ class PersonalReminder(Star):
         if loop:
             self._main_loop = loop
 
+    def _schedule_scheduler_retry(self):
+        if self._scheduler_synced:
+            return
+
+        loop = self._main_loop or self._get_runtime_loop()
+        if not loop:
+            logging.warning("DNF reminder: cannot start scheduler retry task without event loop")
+            return
+
+        current_task = self._scheduler_retry_task
+        if current_task and not current_task.done():
+            return
+
+        self._main_loop = loop
+        try:
+            current_running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_running_loop = None
+
+        if current_running_loop is loop:
+            self._scheduler_retry_task = loop.create_task(self._retry_scheduler_until_ready())
+        else:
+            asyncio.run_coroutine_threadsafe(self._retry_scheduler_until_ready(), loop)
+
+        logging.info("DNF reminder: scheduler retry task started")
+
+    async def _retry_scheduler_until_ready(self):
+        while not self._scheduler_synced:
+            scheduler = self._get_scheduler()
+            if scheduler:
+                self._refresh_scheduler(scheduler)
+                self._scheduler_synced = True
+                logging.info("DNF reminder: scheduler became ready during background retry")
+                break
+
+            await asyncio.sleep(5)
+
+        self._scheduler_retry_task = None
+
     def _get_runtime_loop(self) -> Optional[asyncio.AbstractEventLoop]:
         candidates = []
         if hasattr(self.context, "get_event_loop"):
@@ -252,6 +293,7 @@ class PersonalReminder(Star):
                     "DNF reminder: scheduler is not ready yet, will retry when plugin is used again"
                 )
             self._scheduler_synced = False
+            self._schedule_scheduler_retry()
             return
 
         if self._scheduler_synced and not force:
@@ -259,6 +301,7 @@ class PersonalReminder(Star):
 
         self._refresh_scheduler(scheduler)
         self._scheduler_synced = True
+        self._scheduler_retry_task = None
 
     def _refresh_scheduler(self, scheduler=None):
         scheduler = scheduler or self._get_scheduler()
